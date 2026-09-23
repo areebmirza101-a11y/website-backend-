@@ -1,0 +1,8 @@
+-- Add feature banner fields to settings table
+ALTER TABLE public.settings 
+ADD COLUMN IF NOT EXISTS feature_1_title TEXT NOT NULL DEFAULT '',
+ADD COLUMN IF NOT EXISTS feature_1_desc TEXT NOT NULL DEFAULT '',
+ADD COLUMN IF NOT EXISTS feature_2_title TEXT NOT NULL DEFAULT '',
+ADD COLUMN IF NOT EXISTS feature_2_desc TEXT NOT NULL DEFAULT '',
+ADD COLUMN IF NOT EXISTS feature_3_title TEXT NOT NULL DEFAULT '',
+ADD COLUMN IF NOT EXISTS feature_3_desc TEXT NOT NULL DEFAULT '';

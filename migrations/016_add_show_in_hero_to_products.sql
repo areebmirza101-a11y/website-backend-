@@ -1,0 +1,1 @@
+ALTER TABLE products ADD COLUMN IF NOT EXISTS show_in_hero BOOLEAN DEFAULT false;

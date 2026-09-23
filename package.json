@@ -1,0 +1,32 @@
+{
+  "name": "ecommerce-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "REST API for the clothing export e-commerce store (Express + File Storage)",
+  "scripts": {
+    "start": "node ./bin/www",
+    "dev": "nodemon ./bin/www",
+    "seed": "node ./seeders/seed.js",
+    "migrate": "node ./migrate.js"
+  },
+  "dependencies": {
+    "@google/genai": "^2.15.0",
+    "@supabase/supabase-js": "^2.111.0",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-async-errors": "^3.1.1",
+    "geoip-lite": "^1.4.10",
+    "http-errors": "^2.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.22.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
