@@ -1,6 +1,7 @@
 const createError = require('http-errors');
 const { store } = require('../utils/data_store');
 const PromotionModel = require('../models/promotionModel');
+const { sendMail } = require('../utils/mailer');
 
 // Places an order directly in the database (no external payment gateway).
 // Payment happens out-of-band (COD / manual transfer / custom arrangement);
@@ -85,6 +86,42 @@ exports.checkout = async (req, res) => {
       color: d.color,
     }))
   );
+
+  // Send Order Confirmation to Admin
+  await sendMail({
+    to: process.env.SMTP_USER || 'info@velmorascreation.com',
+    subject: `New Order Received: #${order.id}`,
+    html: `
+      <h2>New Order Received (#${order.id})</h2>
+      <p><strong>Customer:</strong> ${customer.name} (${customer.email})</p>
+      <p><strong>Total:</strong> ${total.toFixed(2)} ${currency}</p>
+      <p><strong>Status:</strong> Pending</p>
+      <hr />
+      <h3>Items:</h3>
+      <ul>
+        ${detailed.map(d => `<li>${d.qty}x ${d.product.name} (Size: ${d.size || 'N/A'}, Color: ${d.color || 'N/A'}) - ${d.finalPrice.toFixed(2)}</li>`).join('')}
+      </ul>
+      <p>Please log in to the admin dashboard to review and process this order.</p>
+    `,
+  });
+
+  // Send Order Confirmation to Customer
+  await sendMail({
+    to: customer.email,
+    subject: `Your Order Confirmation - Velmoras Creation (#${order.id})`,
+    html: `
+      <h2>Thank you for your order, ${customer.name}!</h2>
+      <p>We have received your order <strong>#${order.id}</strong> and it is currently being processed.</p>
+      <p><strong>Total:</strong> ${total.toFixed(2)} ${currency}</p>
+      <hr />
+      <h3>Order Details:</h3>
+      <ul>
+        ${detailed.map(d => `<li>${d.qty}x ${d.product.name} (Size: ${d.size || 'N/A'}, Color: ${d.color || 'N/A'})</li>`).join('')}
+      </ul>
+      <p>We will contact you shortly regarding the next steps.</p>
+      <p>Best regards,<br>Velmoras Creation Team</p>
+    `,
+  });
 
   res.status(201).json({
     orderId: order.id,
