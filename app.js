@@ -27,7 +27,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+const os = require('os');
+const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_VERSION;
+const staticUploadsDir = isServerless 
+  ? path.join(os.tmpdir(), 'uploads') 
+  : path.join(__dirname, 'uploads');
+
+app.use('/uploads', express.static(staticUploadsDir));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
@@ -44,6 +50,8 @@ app.use('/api/chat', require('./routes/chat'));
 app.use('/api/size-guides', require('./routes/sizeGuides'));
 app.use('/api/testimonials', require('./routes/testimonials'));
 app.use('/api/promotions', require('./routes/promotions'));
+app.use('/api/blogs', require('./routes/blogs'));
+app.use('/api/sitemap.xml', require('./routes/sitemap'));
 app.use((req, res, next) => next(createError(404, 'Route not found')));
 app.use(errorHandler);
 

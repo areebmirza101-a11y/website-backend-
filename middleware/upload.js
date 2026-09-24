@@ -2,8 +2,14 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const createError = require('http-errors');
+const os = require('os');
 
-const uploadDir = path.join(__dirname, '..', 'uploads');
+// Use /tmp for serverless environments (like Vercel) which have a read-only filesystem
+const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_VERSION;
+const uploadDir = isServerless 
+  ? path.join(os.tmpdir(), 'uploads') 
+  : path.join(__dirname, '..', 'uploads');
+
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({
