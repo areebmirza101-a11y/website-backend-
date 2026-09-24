@@ -34,6 +34,23 @@ exports.create = async (req, res) => {
     `,
   });
 
+  // Send Auto-Reply to Customer
+  await sendMail({
+    to: email, // Customer email
+    subject: `We received your inquiry - Velmoras Creation`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Hello ${name},</h2>
+        <p>Thank you for reaching out to <strong>Velmoras Creation</strong>.</p>
+        <p>We have successfully received your inquiry regarding <strong>"${subject}"</strong>. Our team will review your message and get back to you as soon as possible.</p>
+        <br />
+        <p>Best Regards,</p>
+        <p><strong>The Velmoras Creation Team</strong></p>
+        <p><a href="https://velmorascreation.com">www.velmorascreation.com</a></p>
+      </div>
+    `,
+  });
+
   res.status(201).json({ message: 'Message sent successfully', id: record.id });
 };
 
