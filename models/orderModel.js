@@ -39,15 +39,18 @@ const OrderModel = {
   },
 
   async create(data) {
-    const { data: row, error } = await supabase.from('orders').insert(data).select('*').single();
+    // Strip currency so PostgREST never looks for a non-existent currency column
+    const { currency, ...cleanData } = data;
+    const { data: row, error } = await supabase.from('orders').insert(cleanData).select('*').single();
     if (error) throw error;
     return row;
   },
 
   async update(id, data) {
+    const { currency, ...cleanData } = data;
     const { data: row, error } = await supabase
       .from('orders')
-      .update({ ...data, updated_at: new Date().toISOString() })
+      .update({ ...cleanData, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select('*')
       .single();
