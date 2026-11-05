@@ -35,7 +35,13 @@ const OrderModel = {
   async findById(id) {
     const { data, error } = await supabase.from('orders').select('*').eq('id', id).maybeSingle();
     if (error) throw error;
-    return data || null;
+    if (!data) return null;
+    const { data: items } = await supabase.from('order_items').select('*').eq('order_id', id);
+    return { ...data, items: items || [] };
+  },
+
+  async findByPk(id) {
+    return this.findById(id);
   },
 
   async create(data) {

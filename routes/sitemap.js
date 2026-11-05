@@ -9,8 +9,8 @@ router.get('/', async (req, res) => {
     const baseUrl = process.env.CLIENT_URL || 'https://www.velmorascreation.com';
     
     // Fetch dynamic content
-    const products = await ProductModel.getAll();
-    const categories = await CategoryModel.getAll();
+    const products = await ProductModel.findAll();
+    const categories = await CategoryModel.findAll();
     const blogs = await BlogModel.getAll(false);
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
