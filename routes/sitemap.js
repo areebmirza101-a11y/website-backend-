@@ -6,10 +6,7 @@ const BlogModel = require('../models/BlogModel');
 
 router.get('/', async (req, res) => {
   try {
-    const isProd = process.env.NODE_ENV === 'production' || req.query.prod === 'true';
-    const baseUrl = isProd
-      ? 'https://www.velmorascreation.com'
-      : (process.env.CLIENT_URL || 'https://www.velmorascreation.com');
+    const baseUrl = (process.env.CLIENT_URL || 'https://velmorascreation.com').replace(/\/+$/, '');
 
     // Fetch dynamic content from Supabase
     const products = await ProductModel.findAll();
