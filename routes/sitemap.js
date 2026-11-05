@@ -6,9 +6,12 @@ const BlogModel = require('../models/BlogModel');
 
 router.get('/', async (req, res) => {
   try {
-    const baseUrl = process.env.CLIENT_URL || 'https://www.velmorascreation.com';
-    
-    // Fetch dynamic content
+    const isProd = process.env.NODE_ENV === 'production' || req.query.prod === 'true';
+    const baseUrl = isProd
+      ? 'https://www.velmorascreation.com'
+      : (process.env.CLIENT_URL || 'https://www.velmorascreation.com');
+
+    // Fetch dynamic content from Supabase
     const products = await ProductModel.findAll();
     const categories = await CategoryModel.findAll();
     const blogs = await BlogModel.getAll(false);
@@ -16,46 +19,60 @@ router.get('/', async (req, res) => {
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
-    // Helper to add URLs
-    const addUrl = (path, priority = '0.5', changefreq = 'weekly') => {
+    // Helper to add URLs with optional lastmod
+    const addUrl = (path, priority = '0.5', changefreq = 'weekly', lastmod = null) => {
       xml += `  <url>\n`;
       xml += `    <loc>${baseUrl}${path}</loc>\n`;
+      if (lastmod) {
+        try {
+          const dateStr = new Date(lastmod).toISOString().split('T')[0];
+          xml += `    <lastmod>${dateStr}</lastmod>\n`;
+        } catch {
+          // ignore date parse issues
+        }
+      }
       xml += `    <changefreq>${changefreq}</changefreq>\n`;
       xml += `    <priority>${priority}</priority>\n`;
       xml += `  </url>\n`;
     };
 
-    // Static pages
-    addUrl('/', '1.0', 'daily');
-    addUrl('/products', '0.9', 'daily');
+    const today = new Date().toISOString().split('T')[0];
+
+    // Static core pages
+    addUrl('/', '1.0', 'daily', today);
+    addUrl('/products', '0.9', 'daily', today);
     addUrl('/about', '0.8', 'monthly');
     addUrl('/contact', '0.8', 'monthly');
-    addUrl('/blogs', '0.9', 'daily');
-    addUrl('/privacy', '0.3', 'yearly');
-    addUrl('/terms', '0.3', 'yearly');
+    addUrl('/blogs', '0.9', 'daily', today);
+    addUrl('/size-guide', '0.7', 'monthly');
+    addUrl('/products?on_sale=true', '0.8', 'daily', today);
     addUrl('/shipping', '0.5', 'yearly');
     addUrl('/returns', '0.5', 'yearly');
-    addUrl('/size-guide', '0.6', 'monthly');
-    addUrl('/products?on_sale=true', '0.8', 'daily');
-    
+    addUrl('/privacy', '0.3', 'yearly');
+    addUrl('/terms', '0.3', 'yearly');
+
     // Dynamic Categories
     if (categories && categories.length > 0) {
       categories.forEach(cat => {
-        if (cat.slug) addUrl(`/products?category=${cat.slug}`, '0.8', 'weekly');
+        if (cat.slug) {
+          addUrl(`/products?category=${encodeURIComponent(cat.slug)}`, '0.8', 'weekly', cat.updated_at || cat.created_at);
+        }
       });
     }
 
     // Dynamic Products
     if (products && products.length > 0) {
       products.forEach(product => {
-        addUrl(`/products/${product.id}`, '0.9', 'daily'); // Using ID since the frontend uses /products/:id
+        addUrl(`/products/${product.id}`, '0.9', 'daily', product.updated_at || product.created_at);
       });
     }
 
-    // Dynamic Blogs
+    // Dynamic Published Blogs
     if (blogs && blogs.length > 0) {
       blogs.forEach(blog => {
-        addUrl(`/blogs/${blog.slug}`, '0.8', 'daily');
+        if (blog.slug) {
+          addUrl(`/blogs/${encodeURIComponent(blog.slug)}`, '0.8', 'daily', blog.updated_at || blog.created_at);
+        }
       });
     }
 

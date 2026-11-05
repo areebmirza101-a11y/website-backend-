@@ -51,6 +51,7 @@ app.use('/api/size-guides', require('./routes/sizeGuides'));
 app.use('/api/testimonials', require('./routes/testimonials'));
 app.use('/api/promotions', require('./routes/promotions'));
 app.use('/api/blogs', require('./routes/blogs'));
+app.use('/sitemap.xml', require('./routes/sitemap'));
 app.use('/api/sitemap.xml', require('./routes/sitemap'));
 app.use((req, res, next) => next(createError(404, 'Route not found')));
 app.use(errorHandler);
