@@ -1,6 +1,6 @@
 const { store } = require('../utils/data_store');
 const { lookupCountry, clientIp } = require('../utils/geo');
-const { sendMail } = require('../utils/mailer');
+const { sendInfoMail, sendMail } = require('../utils/mailer');
 
 exports.create = async (req, res) => {
   const { name, email, subject, message } = req.body;
@@ -21,7 +21,7 @@ exports.create = async (req, res) => {
 
   // Send Email Notification to Admin
   await sendMail({
-    to: process.env.SMTP_USER || 'info@velmorascreation.com', // Admin email
+    to: process.env.CONTACT_EMAIL || 'info@velmorascreation.com', // Admin inbox
     subject: `New Contact Inquiry: ${subject}`,
     html: `
       <h2>New Contact Form Submission</h2>
@@ -35,7 +35,7 @@ exports.create = async (req, res) => {
   });
 
   // Send Auto-Reply to Customer
-  await sendMail({
+  await sendInfoMail({
     to: email, // Customer email
     subject: `We received your inquiry - Velmoras Creation`,
     html: `

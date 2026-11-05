@@ -1,7 +1,7 @@
 const createError = require('http-errors');
 const { store } = require('../utils/data_store');
 const PromotionModel = require('../models/promotionModel');
-const { sendMail } = require('../utils/mailer');
+const { sendNoreplyMail, sendInfoMail, generateOrderEmailHtml } = require('../utils/mailer');
 const paypal = require('../utils/paypal');
 
 /**
@@ -92,9 +92,12 @@ exports.checkout = async (req, res) => {
     }))
   );
 
-  // Send Order Confirmation to Admin
-  await sendMail({
-    to: process.env.SMTP_USER || 'info@velmorascreation.com',
+  const clientUrl = (process.env.CLIENT_URL || 'https://velmorascreation.com').replace(/\/+$/, '');
+  const trackingUrl = `${clientUrl}/checkout/success?order=${order.id}`;
+
+  // Send Order Notification to Admin Inbox (info@velmorascreation.com)
+  await sendInfoMail({
+    to: process.env.CONTACT_EMAIL || 'info@velmorascreation.com',
     subject: `New Order Received: #${order.id}`,
     html: `
       <h2>New Order Received (#${order.id})</h2>
@@ -110,22 +113,28 @@ exports.checkout = async (req, res) => {
     `,
   }).catch((err) => console.error('Admin email error:', err));
 
-  // Send Order Confirmation to Customer
-  await sendMail({
+  // Send Luxury Order Confirmation with Live Tracking Link to Customer (from noreply@)
+  await sendNoreplyMail({
     to: customer.email,
-    subject: `Your Order Confirmation - Velmoras Creation (#${order.id})`,
-    html: `
-      <h2>Thank you for your order, ${customer.name}!</h2>
-      <p>We have received your order <strong>#${order.id}</strong> and it is currently being processed.</p>
-      <p><strong>Total:</strong> ${total.toFixed(2)} ${currency}</p>
-      <hr />
-      <h3>Order Details:</h3>
-      <ul>
-        ${detailed.map(d => `<li>${d.qty}x ${d.product.name} (Size: ${d.size || 'N/A'}, Color: ${d.color || 'N/A'})</li>`).join('')}
-      </ul>
-      <p>We will contact you shortly regarding the next steps.</p>
-      <p>Best regards,<br>Velmoras Creation Team</p>
-    `,
+    subject: `Order Confirmed: #${order.id} — Velmoras Creation`,
+    html: generateOrderEmailHtml({
+      orderId: order.id,
+      customerName: customer.name,
+      customerEmail: customer.email,
+      shippingAddress: [customer.address, customer.city, customer.country, customer.zip].filter(Boolean).join(', '),
+      items: detailed.map(d => ({
+        name: d.product.name,
+        qty: d.qty,
+        size: d.size,
+        color: d.color,
+        finalPrice: d.finalPrice,
+      })),
+      total: total.toFixed(2),
+      currency,
+      trackingUrl,
+      isPaid: false,
+      paymentMethod: 'Manual / Arrangement',
+    }),
   }).catch((err) => console.error('Customer email error:', err));
 
   res.status(201).json({
@@ -223,9 +232,12 @@ exports.capturePaypalOrder = async (req, res) => {
     paypal_capture_id: captureId,
   });
 
-  // Send Order Confirmation to Admin
-  await sendMail({
-    to: process.env.SMTP_USER || 'info@velmorascreation.com',
+  const clientUrl = (process.env.CLIENT_URL || 'https://velmorascreation.com').replace(/\/+$/, '');
+  const trackingUrl = `${clientUrl}/checkout/success?order=${order.id}`;
+
+  // Send Order Confirmation to Admin (info@velmorascreation.com)
+  await sendInfoMail({
+    to: process.env.CONTACT_EMAIL || 'info@velmorascreation.com',
     subject: `Paid Order Received (PayPal): #${order.id}`,
     html: `
       <h2>PayPal Order Paid Successfully (#${order.id})</h2>
@@ -239,19 +251,26 @@ exports.capturePaypalOrder = async (req, res) => {
     `,
   }).catch((err) => console.error('Admin email error:', err));
 
-  // Send Order Confirmation to Customer
-  await sendMail({
+  // Fetch order items for email receipt
+  const orderItems = await store.order_items.findByOrderId(order.id).catch(() => []);
+
+  // Send Luxury Payment Confirmation with Live Tracking Link to Customer (from noreply@)
+  await sendNoreplyMail({
     to: order.customer_email,
-    subject: `Payment Confirmed - Velmoras Creation (#${order.id})`,
-    html: `
-      <h2>Thank you for your payment, ${order.customer_name}!</h2>
-      <p>We have successfully received your payment via PayPal for order <strong>#${order.id}</strong>.</p>
-      <p><strong>Transaction ID:</strong> ${captureId}</p>
-      <p><strong>Total Paid:</strong> ${order.total} ${order.currency || 'USD'}</p>
-      <hr />
-      <p>Your order is now being processed and prepared for shipping.</p>
-      <p>Best regards,<br>Velmoras Creation Team</p>
-    `,
+    subject: `Payment Received & Order Confirmed: #${order.id} — Velmoras Creation`,
+    html: generateOrderEmailHtml({
+      orderId: order.id,
+      customerName: order.customer_name,
+      customerEmail: order.customer_email,
+      shippingAddress: [order.shipping_address, order.shipping_city, order.shipping_country, order.shipping_zip].filter(Boolean).join(', '),
+      items: orderItems,
+      total: order.total,
+      currency: order.currency || 'USD',
+      trackingUrl,
+      isPaid: true,
+      paymentMethod: 'PayPal / Card Gateway',
+      captureId,
+    }),
   }).catch((err) => console.error('Customer email error:', err));
 
   res.json({
