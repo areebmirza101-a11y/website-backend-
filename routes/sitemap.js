@@ -6,7 +6,10 @@ const BlogModel = require('../models/BlogModel');
 
 router.get('/', async (req, res) => {
   try {
-    const baseUrl = (process.env.CLIENT_URL || 'https://velmorascreation.com').replace(/\/+$/, '');
+    // Canonical production domain for Google Search Console & Webmasters
+    const baseUrl = (req.query.dev === 'true' && process.env.CLIENT_URL)
+      ? process.env.CLIENT_URL.replace(/\/+$/, '')
+      : (process.env.CANONICAL_URL || 'https://velmorascreation.com').replace(/\/+$/, '');
 
     // Fetch dynamic content from Supabase with images
     const products = await ProductModel.findAll({ include: [{ as: 'images' }] });
@@ -67,11 +70,12 @@ router.get('/', async (req, res) => {
       });
     }
 
-    // Dynamic Products (Single Products with images for Google Rich Indexing)
+    // Dynamic Products (Single Products with clean SEO slugs & Google Image Schema)
     if (products && products.length > 0) {
       products.forEach(product => {
+        const productSlugOrId = product.slug || product.id;
         const mainImg = product.images?.find(i => i.is_main)?.url || product.images?.[0]?.url;
-        addUrl(`/products/${product.id}`, '0.9', 'daily', product.updated_at || product.created_at, mainImg, product.name);
+        addUrl(`/products/${productSlugOrId}`, '0.9', 'daily', product.updated_at || product.created_at, mainImg, product.name);
       });
     }
 
