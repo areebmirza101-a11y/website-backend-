@@ -1,5 +1,6 @@
 const createError = require('http-errors');
 const { store } = require('../utils/data_store');
+const cache = require('../utils/cache');
 
 const slugify = (s) =>
   s.toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -10,11 +11,15 @@ exports.list = async (req, res) => {
 };
 
 exports.listWithSubs = async (req, res) => {
+  const cached = cache.get('categories_with_subs');
+  if (cached) return res.json(cached);
   try {
     const categories = await store.categories.findWithChildren();
+    cache.set('categories_with_subs', categories, 60000);
     res.json(categories);
   } catch (err) {
     const cats = await store.categories.findAll({ order: [['name', 'ASC']] });
+    cache.set('categories_with_subs', cats, 60000);
     res.json(cats);
   }
 };
@@ -34,6 +39,7 @@ exports.create = async (req, res) => {
   if (!name) throw createError(400, 'Category name is required');
   const bgImage = req.file ? `/uploads/${req.file.filename}` : (bg_image || null);
   const category = await store.categories.create({ name, description, slug: slugify(name), parent_id: parent_id || null, bg_image: bgImage, show_on_home: show_on_home === 'true' || show_on_home === true });
+  cache.invalidate('categories');
   res.status(201).json(category);
 };
 
@@ -50,6 +56,7 @@ exports.update = async (req, res) => {
     bg_image: bgImage,
     show_on_home: show_on_home !== undefined ? (show_on_home === 'true' || show_on_home === true) : category.show_on_home,
   });
+  cache.invalidate('categories');
   res.json(updated);
 };
 

@@ -17,5 +17,6 @@ router.put(
   ]),
   ctrl.updateSettings
 );
+router.post('/test-whatsapp', authenticate, requireAdmin, ctrl.testWhatsApp);
 
 module.exports = router;

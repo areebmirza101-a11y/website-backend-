@@ -1,5 +1,6 @@
 const createError = require('http-errors');
 const { store } = require('../utils/data_store');
+const cache = require('../utils/cache');
 
 const slugify = (s) =>
   s.toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -15,6 +16,11 @@ const productInclude = [
 
 exports.list = async (req, res) => {
   const { category, search, featured, show_in_hero, page = 1, limit = 12, admin } = req.query;
+  const cacheKey = `products_${JSON.stringify(req.query)}`;
+  if (!admin) {
+    const cached = cache.get(cacheKey);
+    if (cached) return res.json(cached);
+  }
   const where = {};
   if (!admin) where.active = true;
   if (featured === 'true') where.featured = true;
@@ -41,12 +47,16 @@ exports.list = async (req, res) => {
     page: parseInt(page, 10) || 1,
   });
 
-  res.json({
+  const payload = {
     products: result.rows,
     total: result.count,
     page: result.page,
     pages: result.pages,
-  });
+  };
+  if (!admin) {
+    cache.set(cacheKey, payload, 30000);
+  }
+  res.json(payload);
 };
 
 exports.getOne = async (req, res) => {
@@ -68,6 +78,16 @@ exports.create = async (req, res) => {
       body[k] = body[k].split(',').map((v) => v.trim()).filter(Boolean);
     }
   });
+  if (typeof body.faqs === 'string') {
+    try {
+      body.faqs = JSON.parse(body.faqs);
+    } catch {
+      body.faqs = [];
+    }
+  }
+  if (Array.isArray(body.faqs)) {
+    body.faqs = body.faqs.filter((f) => f && (f.question?.trim() || f.answer?.trim()));
+  }
 
   const product = await store.products.create(body);
 
@@ -133,6 +153,16 @@ exports.update = async (req, res) => {
       body[k] = body[k].split(',').map((v) => v.trim()).filter(Boolean);
     }
   });
+  if (typeof body.faqs === 'string') {
+    try {
+      body.faqs = JSON.parse(body.faqs);
+    } catch {
+      body.faqs = [];
+    }
+  }
+  if (Array.isArray(body.faqs)) {
+    body.faqs = body.faqs.filter((f) => f && (f.question?.trim() || f.answer?.trim()));
+  }
 
   const updated = await store.products.update(product.id, body);
   console.log('Update payload:', body);
@@ -270,6 +300,7 @@ exports.updateImagePrice = async (req, res) => {
   const updated = await store.product_images.update(image.id, {
     price: price !== undefined && price !== '' ? parseFloat(price) : null,
   });
+  cache.invalidate('products');
   res.json(updated);
 };
 

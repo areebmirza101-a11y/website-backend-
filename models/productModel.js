@@ -115,20 +115,49 @@ const ProductModel = {
   },
 
   async create(data) {
-    const { data: row, error } = await supabase.from('products').insert(data).select('*').single();
-    if (error) throw error;
-    return row;
+    try {
+      const { data: row, error } = await supabase.from('products').insert(data).select('*').single();
+      if (error) throw error;
+      return row;
+    } catch (err) {
+      if (err.code === '42703' && data.faqs !== undefined) {
+        console.warn('[ProductModel] Column "faqs" does not exist yet. Stripping faqs and saving product.');
+        const fallback = { ...data };
+        delete fallback.faqs;
+        const { data: row, error: fallbackError } = await supabase.from('products').insert(fallback).select('*').single();
+        if (fallbackError) throw fallbackError;
+        return row;
+      }
+      throw err;
+    }
   },
 
   async update(id, data) {
-    const { data: row, error } = await supabase
-      .from('products')
-      .update({ ...data, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select('*')
-      .single();
-    if (error) throw error;
-    return row;
+    try {
+      const { data: row, error } = await supabase
+        .from('products')
+        .update({ ...data, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return row;
+    } catch (err) {
+      if (err.code === '42703' && data.faqs !== undefined) {
+        console.warn('[ProductModel] Column "faqs" does not exist yet. Stripping faqs and saving product.');
+        const fallback = { ...data };
+        delete fallback.faqs;
+        const { data: row, error: fallbackError } = await supabase
+          .from('products')
+          .update({ ...fallback, updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .select('*')
+          .single();
+        if (fallbackError) throw fallbackError;
+        return row;
+      }
+      throw err;
+    }
   },
 
   async delete(id) {
@@ -138,8 +167,13 @@ const ProductModel = {
   },
 
   async count(where = {}) {
-    const result = await this.findAll({ where });
-    return Array.isArray(result) ? result.length : result.rows.length;
+    let query = supabase.from('products').select('*', { count: 'exact', head: true });
+    if (where.active !== undefined) query = query.eq('active', where.active);
+    if (where.featured !== undefined) query = query.eq('featured', where.featured);
+    if (where.category_id) query = query.eq('category_id', where.category_id);
+    const { count, error } = await query;
+    if (error) throw error;
+    return count || 0;
   },
 
   async increment(field, { by = 1, where = {} }) {

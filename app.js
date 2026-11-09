@@ -50,6 +50,8 @@ app.use('/api/chat', require('./routes/chat'));
 app.use('/api/size-guides', require('./routes/sizeGuides'));
 app.use('/api/testimonials', require('./routes/testimonials'));
 app.use('/api/promotions', require('./routes/promotions'));
+app.use('/api/coupons', require('./routes/coupons'));
+app.use('/api/newsletter', require('./routes/newsletter'));
 app.use('/api/blogs', require('./routes/blogs'));
 app.use('/sitemap.xml', require('./routes/sitemap'));
 app.use('/api/sitemap.xml', require('./routes/sitemap'));

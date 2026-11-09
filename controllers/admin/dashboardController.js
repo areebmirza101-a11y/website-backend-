@@ -117,7 +117,18 @@ function normalizeCountry(raw) {
   return { key: v.toLowerCase(), name: v, code: null };
 }
 
+
+// In-memory short-lived cache (20s TTL) for ultra-fast dashboard switching
+const statsCache = new Map();
+const STATS_CACHE_TTL = 20 * 1000;
+
 exports.stats = async (req, res) => {
+  const cacheKey = `${req.query.start_date || 'default'}_${req.query.end_date || 'default'}`;
+  const cached = statsCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < STATS_CACHE_TTL)) {
+    return res.json(cached.data);
+  }
+
   // Date range filter: ?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
   // Defaults to last 30 days if not provided
   const now = new Date();
@@ -131,12 +142,40 @@ exports.stats = async (req, res) => {
   startDate.setHours(0, 0, 0, 0);
   endDate.setHours(23, 59, 59, 999);
 
-  const productCount = await store.products.count();
-  const categoryCount = await store.categories.count();
-  const orderCount = await store.orders.count();
-  const customerCount = await store.users.count({ role: 'customer' });
+  // ---- Previous comparable period (same length, immediately before start) ----
+  const rangeMs = endDate.getTime() - startDate.getTime();
+  const prevStart = new Date(startDate.getTime() - rangeMs - 1);
+  const prevEnd = new Date(startDate.getTime() - 1);
 
-  const allOrders = await store.orders.findAll();
+  // Parallel load of ALL required data simultaneously
+  const [
+    allOrders,
+    pageViews,
+    totalVisits,
+    allUsers,
+    products,
+    categories,
+    orderItems,
+    unreadMessages,
+    allMessages
+  ] = await Promise.all([
+    store.orders.findAll(),
+    store.page_views.findSince(prevStart.toISOString()),
+    store.page_views.count(),
+    store.users.findAll(),
+    store.products.findAll(),
+    store.categories.findAll(),
+    store.order_items.findAll(),
+    store.contact_messages.countUnread(),
+    store.contact_messages.findAll()
+  ]);
+
+  const productCount = products.length;
+  const categoryCount = categories.length;
+  const orderCount = allOrders.length;
+  const allCustomers = allUsers.filter((u) => u.role === 'customer');
+  const customerCount = allCustomers.length;
+
   const ordersInRange = allOrders.filter((o) => {
     const t = new Date(o.created_at);
     return t >= startDate && t <= endDate;
@@ -146,11 +185,6 @@ exports.stats = async (req, res) => {
   const paidInRange = ordersInRange.filter((o) => o.payment_status === 'paid');
   const revenue = paidOrders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
   const revenueInRange = paidInRange.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
-
-  // ---- Previous comparable period (same length, immediately before start) ----
-  const rangeMs = endDate.getTime() - startDate.getTime();
-  const prevStart = new Date(startDate.getTime() - rangeMs - 1);
-  const prevEnd = new Date(startDate.getTime() - 1);
 
   // ---- Time series over the selected range (per day) ----
   const days = daysBetween(startDate, endDate);
@@ -163,9 +197,6 @@ exports.stats = async (req, res) => {
     ordByDay[key] += 1;
     if (o.payment_status === 'paid') revByDay[key] += parseFloat(o.total) || 0;
   }
-
-  // ---- Traffic / visitors over the selected range ----
-  const pageViews = await store.page_views.findSince(prevStart.toISOString());
 
   const visByDay = Object.fromEntries(days.map((d) => [d, 0]));
   const uniqByDay = Object.fromEntries(days.map((d) => [d, new Set()]));
@@ -201,7 +232,7 @@ exports.stats = async (req, res) => {
     .sort((a, b) => b.count - a.count)
     .slice(0, 6);
 
-  const totalVisits = await store.page_views.count();
+  // totalVisits preloaded in parallel batch
 
   const timeseries = days.map((d) => ({
     date: d,
@@ -235,7 +266,7 @@ exports.stats = async (req, res) => {
       if (o.payment_status === 'paid') revenuePrev += parseFloat(o.total) || 0;
     }
   }
-  const allCustomers = (await store.users.findAll()).filter((u) => u.role === 'customer');
+  // allCustomers preloaded
   for (const u of allCustomers) {
     const t = new Date(u.created_at);
     if (t >= startDate && t <= endDate) newCustomersRange.add(u.id);
@@ -250,13 +281,10 @@ exports.stats = async (req, res) => {
   };
 
   // ---- Sales by category (from paid order items IN RANGE) ----
-  const products = await store.products.findAll();
-  const categories = await store.categories.findAll();
   const catNameById = Object.fromEntries(categories.map((c) => [c.id, c.name]));
   const prodCatById = Object.fromEntries(products.map((p) => [p.id, p.category_id]));
 
   const paidRangeIds = new Set(paidInRange.map((o) => o.id));
-  const orderItems = await store.order_items.findAll();
 
   const catRevenue = {};
   const productRevenue = {};
@@ -313,8 +341,6 @@ exports.stats = async (req, res) => {
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 5);
 
-  const unreadMessages = await store.contact_messages.countUnread();
-  const allMessages = await store.contact_messages.findAll();
   const recentMessages = allMessages.slice(0, 5);
 
   // ---- Country / region breakdown: orders + traffic + inquiries (in range) ----
@@ -377,7 +403,7 @@ exports.stats = async (req, res) => {
   const paidCountRange = paidInRange.length;
   const conversionRate = visitsRange > 0 ? Math.round((ordersRange / visitsRange) * 1000) / 10 : 0;
 
-  res.json({
+  const responsePayload = {
     range: { start: ymd(startDate), end: ymd(endDate), days: days.length },
     // lifetime totals
     productCount,
@@ -416,5 +442,16 @@ exports.stats = async (req, res) => {
     topProducts,
     salesBuckets,
     countryBreakdown,
-  });
+  };
+
+  statsCache.set(cacheKey, { timestamp: Date.now(), data: responsePayload });
+  // purge cache entries older than 2 minutes
+  if (statsCache.size > 20) {
+    const cutoff = Date.now() - 120000;
+    for (const [k, v] of statsCache.entries()) {
+      if (v.timestamp < cutoff) statsCache.delete(k);
+    }
+  }
+
+  res.json(responsePayload);
 };

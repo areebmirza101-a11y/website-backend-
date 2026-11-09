@@ -273,9 +273,115 @@ const generateOrderEmailHtml = ({
 };
 
 // Default export wrapper
+
+/**
+ * Luxury Welcome Email Template with VIP Promo Code
+ */
+const generateWelcomeEmailHtml = ({ email, discountCode = 'WELCOME10', clientUrl = 'https://velmorascreation.com' }) => {
+  const currentYear = new Date().getFullYear();
+  const shopUrl = `${clientUrl.replace(/\/+$/, '')}/products`;
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to Velmoras Creation</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0b0f19; padding: 40px 15px;">
+    <tr>
+      <td align="center">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #111827; border-radius: 24px; overflow: hidden; border: 1px solid rgba(186, 155, 116, 0.3); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);">
+          
+          <!-- Luxury Gold Header -->
+          <tr>
+            <td style="padding: 40px 32px 30px; text-align: center; background: linear-gradient(180deg, #1f2937 0%, #111827 100%); border-bottom: 1px solid rgba(186, 155, 116, 0.2);">
+              <p style="margin: 0 0 10px; font-size: 11px; font-weight: 800; letter-spacing: 0.25em; text-transform: uppercase; color: #BA9B74;">
+                VELMORAS CREATION
+              </p>
+              <h1 style="margin: 0; font-size: 28px; font-weight: 800; color: #ffffff; letter-spacing: -0.02em;">
+                Welcome to the Inner Circle
+              </h1>
+              <p style="margin: 8px 0 0; font-size: 13px; color: #9ca3af; letter-spacing: 0.05em;">
+                Bespoke Cinema Costumes & Master Replica Tailoring
+              </p>
+            </td>
+          </tr>
+
+          <!-- Main Body -->
+          <tr>
+            <td style="padding: 36px 32px;">
+              <p style="margin: 0 0 20px; font-size: 15px; color: #e5e7eb; line-height: 1.7;">
+                Thank you for subscribing! You are now part of our private collector circle. You will be the first to receive updates on limited-edition costume drops, rare screen-accurate fabric arrivals, and private tailoring commission windows.
+              </p>
+
+              <!-- Luxury Discount Gift Box -->
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 28px 0; background: linear-gradient(135deg, rgba(186, 155, 116, 0.15) 0%, rgba(186, 155, 116, 0.05) 100%); border: 1px dashed #BA9B74; border-radius: 20px; padding: 24px; text-align: center;">
+                <tr>
+                  <td>
+                    <p style="margin: 0 0 8px; font-size: 11px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: #BA9B74;">
+                      YOUR EXCLUSIVE WELCOME GIFT
+                    </p>
+                    <p style="margin: 0 0 14px; font-size: 26px; font-weight: 900; color: #ffffff;">
+                      10% OFF YOUR FIRST ORDER
+                    </p>
+                    <div style="display: inline-block; background-color: #000000; padding: 10px 24px; border-radius: 12px; border: 1px solid #BA9B74;">
+                      <span style="font-family: monospace; font-size: 20px; font-weight: 900; letter-spacing: 0.15em; color: #BA9B74;">
+                        ${discountCode}
+                      </span>
+                    </div>
+                    <p style="margin: 14px 0 0; font-size: 12px; color: #9ca3af;">
+                      Enter this code at checkout to claim your 10% discount on any custom costume or tailoring order.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA Button -->
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 32px 0 20px;">
+                <tr>
+                  <td align="center">
+                    <a href="${shopUrl}" style="display: inline-block; background: #BA9B74; color: #0b0f19; font-size: 13px; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; text-decoration: none; padding: 16px 36px; border-radius: 9999px; box-shadow: 0 10px 25px -5px rgba(186, 155, 116, 0.4);">
+                      Explore Costumes & Claim 10%
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Support Line -->
+              <p style="margin: 28px 0 0; font-size: 12px; color: #6b7280; text-align: center; line-height: 1.6;">
+                Need custom sizing or have questions about a cinema replica? Simply reply to this email or reach us at <a href="mailto:info@velmorascreation.com" style="color: #BA9B74; text-decoration: none; font-weight: bold;">info@velmorascreation.com</a>.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #0b0f19; padding: 24px 32px; text-align: center; border-top: 1px solid rgba(255, 255, 255, 0.05);">
+              <p style="margin: 0 0 6px; font-size: 11px; font-weight: 700; color: #9ca3af; letter-spacing: 0.1em; text-transform: uppercase;">
+                Velmoras Creation · Screen-Accurate Tailoring
+              </p>
+              <p style="margin: 0; font-size: 11px; color: #4b5563;">
+                © ${currentYear} Velmoras Creation. All rights reserved. • G-10, Islamabad, Pakistan
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+};
+
 module.exports = {
   sendNoreplyMail,
   sendInfoMail,
   sendMail: sendNoreplyMail, // default to noreply with reply-to info
   generateOrderEmailHtml,
+  generateWelcomeEmailHtml,
 };

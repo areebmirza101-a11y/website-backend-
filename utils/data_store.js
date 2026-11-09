@@ -82,6 +82,7 @@ const store = {
     findById: (id) => models.contact_messages.findById(id),
     create: (data) => models.contact_messages.create(data),
     update: (id, data) => models.contact_messages.update(id, data),
+    delete: (id) => models.contact_messages.delete(id),
     countUnread: () => models.contact_messages.countUnread(),
   },
 

@@ -76,3 +76,28 @@ exports.updateSettings = async (req, res) => {
 
   res.json(settings);
 };
+
+exports.testWhatsApp = async (req, res) => {
+  const { sendWhatsAppAlert, getAdminPhone, getApiKey } = require('../utils/whatsapp');
+  const phone = getAdminPhone();
+  const apiKey = getApiKey();
+
+  if (!phone || !apiKey) {
+    throw require('http-errors')(400, 'WHATSAPP_ADMIN_PHONE or CALLMEBOT_API_KEY is missing in backend/.env');
+  }
+
+  const success = await sendWhatsAppAlert(`✅ *Velmoras Creation WhatsApp Alerts Connected!*
+
+This is a test notification confirming your WhatsApp connection is active.
+You will now receive instant alerts whenever:
+• A customer submits a new inquiry
+• A new order is placed
+
+⏰ ${new Date().toLocaleString()}`);
+
+  if (!success) {
+    throw require('http-errors')(500, 'CallMeBot API failed to deliver the message. Please verify phone number and API key.');
+  }
+
+  res.json({ message: 'WhatsApp test notification sent successfully!' });
+};

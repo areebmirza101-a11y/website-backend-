@@ -46,6 +46,42 @@ exports.me = async (req, res) => {
   res.json({ user: publicUser(req.user) });
 };
 
+exports.updateProfile = async (req, res) => {
+  const { name, current_password, new_password } = req.body;
+  const user = req.user;
+
+  const updates = {};
+  if (name && typeof name === 'string' && name.trim()) {
+    updates.name = name.trim();
+  }
+
+  // If password change is requested
+  if (new_password) {
+    if (!current_password) {
+      throw createError(400, 'Current password is required to change password');
+    }
+    if (new_password.length < 6) {
+      throw createError(400, 'New password must be at least 6 characters');
+    }
+    const isMatch = await bcrypt.compare(current_password, user.password);
+    if (!isMatch) {
+      throw createError(400, 'Current password is incorrect');
+    }
+    updates.password = await bcrypt.hash(new_password, 10);
+  }
+
+  // NOTE: Email is strictly locked and cannot be changed by user
+  if (Object.keys(updates).length > 0) {
+    const updated = await store.users.update(user.id, updates);
+    return res.json({
+      message: 'Profile updated successfully',
+      user: publicUser(updated),
+    });
+  }
+
+  res.json({ message: 'No changes made', user: publicUser(user) });
+};
+
 exports.changePassword = async (req, res) => {
   const { current_password, new_password } = req.body;
 

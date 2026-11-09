@@ -21,6 +21,18 @@ const productBodySchema = z.object({
   sizes: z.array(z.string()).optional(),
   colors: z.array(z.string()).optional(),
   material: z.string().optional(),
+  show_in_hero: z.preprocess((val) => val === true || val === 'true', z.boolean()).optional(),
+  size_guide_id: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? null : toNumber(val)),
+    z.number().int().positive().nullable().optional()
+  ),
+  faqs: z.union([
+    z.array(z.object({
+      question: z.string().optional(),
+      answer: z.string().optional(),
+    })),
+    z.string(),
+  ]).optional(),
   images: z.array(z.object({
     url: z.string().optional(),
     is_main: z.boolean().optional(),

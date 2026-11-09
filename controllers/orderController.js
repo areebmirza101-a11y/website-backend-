@@ -1,7 +1,9 @@
 const createError = require('http-errors');
 const { store } = require('../utils/data_store');
 const PromotionModel = require('../models/promotionModel');
+const CouponModel = require('../models/couponModel');
 const { sendNoreplyMail, sendInfoMail, generateOrderEmailHtml } = require('../utils/mailer');
+const { sendWhatsAppAlert } = require('../utils/whatsapp');
 const paypal = require('../utils/paypal');
 
 /**
@@ -53,9 +55,36 @@ async function prepareOrderData(items) {
   return { detailed, total };
 }
 
+
+async function applyCouponDiscount(subtotal, couponCode) {
+  if (!couponCode) return { discount: 0, finalTotal: subtotal, coupon: null };
+  try {
+    const coupon = await CouponModel.findByCode(couponCode);
+    if (!coupon || !coupon.active) return { discount: 0, finalTotal: subtotal, coupon: null };
+    const now = new Date();
+    if (coupon.start_date && new Date(coupon.start_date) > now) return { discount: 0, finalTotal: subtotal, coupon: null };
+    if (coupon.end_date && new Date(coupon.end_date) < now) return { discount: 0, finalTotal: subtotal, coupon: null };
+    if (coupon.min_order_amount && subtotal < coupon.min_order_amount) return { discount: 0, finalTotal: subtotal, coupon: null };
+    
+    let discount = 0;
+    if (coupon.discount_type === 'percentage') {
+      discount = (subtotal * (coupon.discount_value / 100));
+    } else {
+      discount = coupon.discount_value;
+    }
+    discount = Math.min(discount, subtotal);
+    discount = Math.round(discount * 100) / 100;
+    const finalTotal = Math.max(0, subtotal - discount);
+    return { discount, finalTotal, coupon };
+  } catch (err) {
+    console.error('Error applying coupon to order:', err);
+    return { discount: 0, finalTotal: subtotal, coupon: null };
+  }
+}
+
 // Places an order directly in the database (Manual / COD / Out-of-band payment)
 exports.checkout = async (req, res) => {
-  const { items, customer, currency = 'USD' } = req.body;
+  const { items, customer, currency = 'USD', coupon_code = null } = req.body;
   if (!Array.isArray(items) || items.length === 0) {
     throw createError(400, 'Cart is empty');
   }
@@ -63,7 +92,8 @@ exports.checkout = async (req, res) => {
     throw createError(400, 'Customer name, email and address are required');
   }
 
-  const { detailed, total } = await prepareOrderData(items);
+  const { detailed, total: subtotal } = await prepareOrderData(items);
+  const { discount, finalTotal: total, coupon } = await applyCouponDiscount(subtotal, coupon_code);
 
   const order = await store.orders.create({
     customer_name: customer.name,
@@ -113,6 +143,18 @@ exports.checkout = async (req, res) => {
     `,
   }).catch((err) => console.error('Admin email error:', err));
 
+  // Send WhatsApp Notification to Admin
+  const orderMsg = `🛍️ *New Order Received — #${order.id}*
+
+👤 *Customer:* ${customer.name}
+💰 *Total:* $${total.toFixed(2)} ${currency}
+📍 *Ship to:* ${[customer.city, customer.country].filter(Boolean).join(', ')}
+📦 *Items:* ${detailed.map(d => `${d.qty}x ${d.product.name}`).join(', ')}
+
+⏰ *Placed:* ${new Date().toLocaleString()}`;
+
+  sendWhatsAppAlert(orderMsg).catch(err => console.error('[WhatsApp] Order alert error:', err.message));
+
   // Send Luxury Order Confirmation with Live Tracking Link to Customer (from noreply@)
   await sendNoreplyMail({
     to: customer.email,
@@ -148,7 +190,7 @@ exports.checkout = async (req, res) => {
  * 1. Create PayPal Order on backend and insert order record in DB
  */
 exports.createPaypalOrder = async (req, res) => {
-  const { items, customer, currency = 'USD' } = req.body;
+  const { items, customer, currency = 'USD', coupon_code = null } = req.body;
   if (!Array.isArray(items) || items.length === 0) {
     throw createError(400, 'Cart is empty');
   }
@@ -156,7 +198,8 @@ exports.createPaypalOrder = async (req, res) => {
     throw createError(400, 'Customer name, email and address are required');
   }
 
-  const { detailed, total } = await prepareOrderData(items);
+  const { detailed, total: subtotal } = await prepareOrderData(items);
+  const { discount, finalTotal: total, coupon } = await applyCouponDiscount(subtotal, coupon_code);
 
   // Call PayPal API to generate official PayPal Order ID
   const paypalOrder = await paypal.createOrder(total, currency);
@@ -251,6 +294,17 @@ exports.capturePaypalOrder = async (req, res) => {
     `,
   }).catch((err) => console.error('Admin email error:', err));
 
+  // Send WhatsApp Notification to Admin
+  const paidOrderMsg = `💳 *Paid PayPal Order Received — #${order.id}*
+
+👤 *Customer:* ${order.customer_name}
+💰 *Total:* $${order.total} ${order.currency || 'USD'} (PAID)
+📍 *Ship to:* ${[order.shipping_city, order.shipping_country].filter(Boolean).join(', ')}
+
+⏰ *Captured:* ${new Date().toLocaleString()}`;
+
+  sendWhatsAppAlert(paidOrderMsg).catch(err => console.error('[WhatsApp] Paid order alert error:', err.message));
+
   // Fetch order items for email receipt
   const orderItems = await store.order_items.findByOrderId(order.id).catch(() => []);
 
@@ -290,7 +344,11 @@ exports.listAll = async (req, res) => {
 };
 
 exports.listMine = async (req, res) => {
-  const orders = await store.orders.findAll({ where: { user_id: req.user.id }, order: [['created_at', 'DESC']] });
+  const orders = await store.orders.findAll({
+    where: { user_id: req.user.id },
+    include: [{ model: 'OrderItem', as: 'items' }],
+    order: [['created_at', 'DESC']],
+  });
   res.json(orders);
 };
 

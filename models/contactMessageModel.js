@@ -49,6 +49,15 @@ const ContactMessageModel = {
     if (error) throw error;
     return count || 0;
   },
+
+  async delete(id) {
+    const { error } = await supabase
+      .from('contact_messages')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    return true;
+  },
 };
 
 module.exports = ContactMessageModel;
