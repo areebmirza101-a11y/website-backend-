@@ -10,6 +10,7 @@ router.post('/paypal/capture-order', optionalAuth, ctrl.capturePaypalOrder);
 
 router.get('/', authenticate, requireAdmin, ctrl.listAll);
 router.patch('/:id/status', authenticate, requireAdmin, validate('orderStatusSchema'), ctrl.updateStatus);
+router.delete('/:id', authenticate, requireAdmin, ctrl.deleteOrder);
 router.get('/mine', authenticate, ctrl.listMine);
 router.get('/:id', optionalAuth, ctrl.getOne);
 

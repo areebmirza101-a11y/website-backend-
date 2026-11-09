@@ -52,6 +52,8 @@ const store = {
     findByPk: (id) => models.orders.findById(id),
     create: (data) => models.orders.create(data),
     update: (id, data) => models.orders.update(id, data),
+    delete: (id) => models.orders.delete(id),
+    destroy: (id) => models.orders.delete(id),
     count: (where = {}) => models.orders.count(where),
   },
 

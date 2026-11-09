@@ -371,3 +371,10 @@ exports.updateStatus = async (req, res) => {
   });
   res.json(updated);
 };
+
+exports.deleteOrder = async (req, res) => {
+  const order = await store.orders.findByPk(req.params.id);
+  if (!order) throw createError(404, 'Order not found');
+  await store.orders.delete(order.id);
+  res.json({ success: true, message: `Order #${order.id} deleted successfully` });
+};

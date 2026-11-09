@@ -71,6 +71,15 @@ const OrderModel = {
     if (error) throw error;
     return count || 0;
   },
+
+  async delete(id) {
+    // Delete associated order items first to avoid foreign key constraints
+    await supabase.from('order_items').delete().eq('order_id', id);
+    // Delete the order itself
+    const { error } = await supabase.from('orders').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  },
 };
 
 module.exports = OrderModel;
