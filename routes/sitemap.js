@@ -48,24 +48,24 @@ router.get('/', async (req, res) => {
 
     const today = new Date().toISOString().split('T')[0];
 
-    // Static core pages
+    // Static core pages (Pure Canonical SEO Paths, 0 query parameters)
     addUrl('/', '1.0', 'daily', today);
     addUrl('/products', '0.9', 'daily', today);
+    addUrl('/sale', '0.8', 'daily', today);
     addUrl('/about', '0.8', 'monthly');
     addUrl('/contact', '0.8', 'monthly');
     addUrl('/blogs', '0.9', 'daily', today);
     addUrl('/size-guide', '0.7', 'monthly');
-    addUrl('/products?on_sale=true', '0.8', 'daily', today);
     addUrl('/shipping', '0.5', 'yearly');
     addUrl('/returns', '0.5', 'yearly');
     addUrl('/privacy', '0.3', 'yearly');
     addUrl('/terms', '0.3', 'yearly');
 
-    // Dynamic Categories
+    // Dynamic Categories (Clean SEO Slug Paths)
     if (categories && categories.length > 0) {
       categories.forEach(cat => {
         if (cat.slug) {
-          addUrl(`/products?category=${encodeURIComponent(cat.slug)}`, '0.8', 'weekly', cat.updated_at || cat.created_at);
+          addUrl(`/category/${encodeURIComponent(cat.slug)}`, '0.8', 'weekly', cat.updated_at || cat.created_at, cat.image_url, cat.name);
         }
       });
     }
