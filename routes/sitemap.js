@@ -8,16 +8,16 @@ router.get('/', async (req, res) => {
   try {
     const baseUrl = (process.env.CLIENT_URL || 'https://velmorascreation.com').replace(/\/+$/, '');
 
-    // Fetch dynamic content from Supabase
-    const products = await ProductModel.findAll();
+    // Fetch dynamic content from Supabase with images
+    const products = await ProductModel.findAll({ include: [{ as: 'images' }] });
     const categories = await CategoryModel.findAll();
     const blogs = await BlogModel.getAll(false);
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
 
-    // Helper to add URLs with optional lastmod
-    const addUrl = (path, priority = '0.5', changefreq = 'weekly', lastmod = null) => {
+    // Helper to add URLs with optional lastmod & image
+    const addUrl = (path, priority = '0.5', changefreq = 'weekly', lastmod = null, imageUrl = null, imageTitle = null) => {
       xml += `  <url>\n`;
       xml += `    <loc>${baseUrl}${path}</loc>\n`;
       if (lastmod) {
@@ -30,6 +30,16 @@ router.get('/', async (req, res) => {
       }
       xml += `    <changefreq>${changefreq}</changefreq>\n`;
       xml += `    <priority>${priority}</priority>\n`;
+      if (imageUrl) {
+        const fullImg = imageUrl.startsWith('http') ? imageUrl : `${baseUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+        xml += `    <image:image>\n`;
+        xml += `      <image:loc>${fullImg}</image:loc>\n`;
+        if (imageTitle) {
+          const cleanTitle = imageTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+          xml += `      <image:title>${cleanTitle}</image:title>\n`;
+        }
+        xml += `    </image:image>\n`;
+      }
       xml += `  </url>\n`;
     };
 
@@ -57,10 +67,11 @@ router.get('/', async (req, res) => {
       });
     }
 
-    // Dynamic Products
+    // Dynamic Products (Single Products with images for Google Rich Indexing)
     if (products && products.length > 0) {
       products.forEach(product => {
-        addUrl(`/products/${product.id}`, '0.9', 'daily', product.updated_at || product.created_at);
+        const mainImg = product.images?.find(i => i.is_main)?.url || product.images?.[0]?.url;
+        addUrl(`/products/${product.id}`, '0.9', 'daily', product.updated_at || product.created_at, mainImg, product.name);
       });
     }
 
@@ -68,7 +79,7 @@ router.get('/', async (req, res) => {
     if (blogs && blogs.length > 0) {
       blogs.forEach(blog => {
         if (blog.slug) {
-          addUrl(`/blogs/${encodeURIComponent(blog.slug)}`, '0.8', 'daily', blog.updated_at || blog.created_at);
+          addUrl(`/blogs/${encodeURIComponent(blog.slug)}`, '0.8', 'daily', blog.updated_at || blog.created_at, blog.featured_image, blog.title);
         }
       });
     }
